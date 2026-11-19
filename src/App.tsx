@@ -8,6 +8,7 @@ import BookingPage from './pages/BookingPage';
 import MyTrips from './pages/Mytrips';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import AdminFlights from './pages/AdminFlights';
 
 function readRoleState() {
   return {
@@ -49,6 +50,20 @@ export default function App() {
               path="/register"
               element={isAuthenticated ? <Navigate to={homePath} replace /> : <Register />}
             />
+
+            <Route                                //new
+              path="/admin/flights"
+              element={
+                !isAuthenticated ? (
+                  <Navigate to="/login" replace />
+                ) : isAdmin ? (
+                  <AdminFlights />
+                ) : (
+                  <Navigate to="/search" replace />
+                )
+              }
+            />
+
             <Route
               path="/admin/users"
               element={

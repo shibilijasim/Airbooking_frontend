@@ -52,12 +52,20 @@ export default function Navbar() {
             {auth.isAuthenticated ? (
               <>
                 {auth.isAdmin ? (
-                  <Link
-                    to="/admin/users"
-                    className="font-medium text-gray-700 hover:text-blue-600"
-                  >
+                  // <Link
+                  //   to="/admin/users"
+                  //   className="font-medium text-gray-700 hover:text-blue-600"
+                  // >
+                  //   User Approvals
+                  // </Link>
+                  <>
+                  <Link to="/admin/users" className="font-medium text-gray-700 hover:text-blue-600">
                     User Approvals
                   </Link>
+                  <Link to="/admin/flights" className="font-medium text-gray-700 hover:text-blue-600">
+                    Flight Management
+                  </Link>
+                  </>
                 ) : (
                   <>
                     <Link
