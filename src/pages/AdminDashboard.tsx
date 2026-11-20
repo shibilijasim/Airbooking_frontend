@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { axiosPrivate } from '../api/axios';
+import ConfirmActionGroup from '../components/ConfirmActionGroup';
+import StatusBadge from '../components/StatusBadge';
 
 interface ReviewUser {
   id: number;
@@ -17,7 +19,9 @@ type ConfirmAction = {
 
 export default function AdminDashboard() {
   const [users, setUsers] = useState<ReviewUser[]>([]);
-  const [statusFilter, setStatusFilter] = useState<'Pending' | 'Approved' | 'Rejected' | 'All'>('Pending');
+  const [statusFilter, setStatusFilter] = useState<
+    'Pending' | 'Approved' | 'Rejected' | 'All'
+  >('Pending');
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -47,15 +51,19 @@ export default function AdminDashboard() {
     fetchUsers(statusFilter);
   }, [statusFilter]);
 
-  const handleReviewDecision = async (userId: number, action: 'approve' | 'reject') => {
+  const handleReviewDecision = async (
+    userId: number,
+    action: 'approve' | 'reject'
+  ) => {
     setProcessingId(userId);
     setErrorMsg('');
     setSuccessMsg('');
 
     try {
-      const res = await axiosPrivate.post(`auth/admin/users/${userId}/review/`, {
-        action,
-      });
+      const res = await axiosPrivate.post(
+        `auth/admin/users/${userId}/review/`,
+        { action }
+      );
 
       const updated: ReviewUser = res.data;
       setUsers((prev) =>
@@ -85,7 +93,9 @@ export default function AdminDashboard() {
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="flex flex-wrap justify-between items-center gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-gray-900">User Approval Queue</h2>
+          <h2 className="text-3xl font-bold text-gray-900">
+            User Approval Queue
+          </h2>
           <p className="text-sm text-gray-600 mt-1">
             Review new registrations and activate approved user accounts.
           </p>
@@ -125,117 +135,74 @@ export default function AdminDashboard() {
       )}
 
       {loading ? (
-        <div className="text-center py-12 text-gray-500">Loading user accounts...</div>
+        <div className="text-center py-12 text-gray-500">
+          Loading user accounts...
+        </div>
       ) : users.length === 0 ? (
         <div className="bg-white p-12 rounded-xl border border-gray-100 text-center text-gray-500">
           No {statusFilter.toLowerCase()} users found.
         </div>
       ) : (
         <div className="space-y-3">
-          {users.map((u) => {
-            const isConfirmingApprove =
-              confirmAction?.userId === u.id && confirmAction.action === 'approve';
-            const isConfirmingReject =
-              confirmAction?.userId === u.id && confirmAction.action === 'reject';
-
-            return (
-              <div
-                key={u.id}
-                className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-wrap justify-between items-center gap-4"
-              >
-                <div>
-                  <div className="flex items-center gap-2.5">
-                    <h3 className="text-lg font-bold text-gray-900">{u.username}</h3>
-                    <span
-                      className={`text-xs font-bold px-2.5 py-0.5 rounded uppercase ${
-                        u.approval_status === 'Approved'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : u.approval_status === 'Rejected'
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-amber-100 text-amber-800'
-                      }`}
-                    >
-                      {u.approval_status}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600 mt-1">{u.email}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    Registered: {new Date(u.date_joined).toLocaleString()}
-                  </p>
+          {users.map((u) => (
+            <div
+              key={u.id}
+              className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-wrap justify-between items-center gap-4"
+            >
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <h3 className="text-lg font-bold text-gray-900">
+                    {u.username}
+                  </h3>
+                  <StatusBadge status={u.approval_status} />
                 </div>
-
-                <div className="flex items-center gap-2">
-                  {u.approval_status !== 'Approved' && (
-                    <>
-                      {isConfirmingApprove ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handleReviewDecision(u.id, 'approve')}
-                            disabled={processingId === u.id}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg disabled:opacity-50"
-                          >
-                            {processingId === u.id ? 'Approving...' : 'Confirm Approve'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmAction(null)}
-                            className="border border-gray-300 text-gray-700 hover:bg-gray-50 text-xs font-semibold px-3 py-2 rounded-lg"
-                          >
-                            Cancel
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setConfirmAction({ userId: u.id, action: 'approve' })
-                          }
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors"
-                        >
-                          Approve
-                        </button>
-                      )}
-                    </>
-                  )}
-
-                  {u.approval_status !== 'Rejected' && (
-                    <>
-                      {isConfirmingReject ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handleReviewDecision(u.id, 'reject')}
-                            disabled={processingId === u.id}
-                            className="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg disabled:opacity-50"
-                          >
-                            {processingId === u.id ? 'Rejecting...' : 'Confirm Reject'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmAction(null)}
-                            className="border border-gray-300 text-gray-700 hover:bg-gray-50 text-xs font-semibold px-3 py-2 rounded-lg"
-                          >
-                            Cancel
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setConfirmAction({ userId: u.id, action: 'reject' })
-                          }
-                          className="border border-red-300 text-red-600 hover:bg-red-50 text-xs font-semibold px-4 py-2 rounded-lg transition-colors"
-                        >
-                          Reject
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
+                <p className="text-sm text-gray-600 mt-1">{u.email}</p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Registered: {new Date(u.date_joined).toLocaleString()}
+                </p>
               </div>
-            );
-          })}
+
+              <div className="flex items-center gap-2">
+                {u.approval_status !== 'Approved' && (
+                  <ConfirmActionGroup
+                    isConfirming={
+                      confirmAction?.userId === u.id &&
+                      confirmAction.action === 'approve'
+                    }
+                    isProcessing={processingId === u.id}
+                    triggerLabel="Approve"
+                    confirmLabel="Confirm Approve"
+                    processingLabel="Approving..."
+                    variant="emerald"
+                    onStartConfirm={() =>
+                      setConfirmAction({ userId: u.id, action: 'approve' })
+                    }
+                    onConfirm={() => handleReviewDecision(u.id, 'approve')}
+                    onCancel={() => setConfirmAction(null)}
+                  />
+                )}
+
+                {u.approval_status !== 'Rejected' && (
+                  <ConfirmActionGroup
+                    isConfirming={
+                      confirmAction?.userId === u.id &&
+                      confirmAction.action === 'reject'
+                    }
+                    isProcessing={processingId === u.id}
+                    triggerLabel="Reject"
+                    confirmLabel="Confirm Reject"
+                    processingLabel="Rejecting..."
+                    variant="red"
+                    onStartConfirm={() =>
+                      setConfirmAction({ userId: u.id, action: 'reject' })
+                    }
+                    onConfirm={() => handleReviewDecision(u.id, 'reject')}
+                    onCancel={() => setConfirmAction(null)}
+                  />
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

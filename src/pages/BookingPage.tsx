@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { axiosPrivate } from '../api/axios';
+import { FormInput, FormSelect } from '../components/FormFields';
+import RouteSummaryCard from '../components/RouteSummaryCard';
+import { useFormFields } from '../hooks/useFormFields';
 import type { LiveFlight } from './FlightSearch';
 
 interface Passenger {
@@ -20,6 +23,18 @@ interface ConfirmedBooking {
   status: string;
 }
 
+const GENDER_OPTIONS = [
+  { label: 'Male', value: 'Male' },
+  { label: 'Female', value: 'Female' },
+  { label: 'Other', value: 'Other' },
+];
+
+const PAYMENT_OPTIONS = [
+  { label: 'Credit / Debit Card', value: 'Card' },
+  { label: 'UPI / Instant Transfer', value: 'UPI' },
+  { label: 'Travel Wallet', value: 'Wallet' },
+];
+
 export default function BookingPage() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -27,6 +42,28 @@ export default function BookingPage() {
     flight: LiveFlight;
     ticketCount: number;
   } | null;
+
+  const { values: checkout, handleChange: handleCheckoutChange } = useFormFields({
+    contactEmail: '',
+    contactPhone: '',
+    paymentMethod: 'Card',
+    cardholderName: '',
+    cardNumber: '',
+    cardExpiry: '',
+  });
+
+  const [passengers, setPassengers] = useState<Passenger[]>(
+    Array.from({ length: state?.ticketCount || 1 }, () => ({
+      full_name: '',
+      age: '',
+      gender: 'Male',
+      passport_number: '',
+    }))
+  );
+  const [errorMsg, setErrorMsg] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [confirmedBooking, setConfirmedBooking] =
+    useState<ConfirmedBooking | null>(null);
 
   if (!state?.flight) {
     return (
@@ -44,27 +81,6 @@ export default function BookingPage() {
 
   const { flight, ticketCount } = state;
   const totalPrice = Number(flight.price) * ticketCount;
-
-  const [passengers, setPassengers] = useState<Passenger[]>(
-    Array.from({ length: ticketCount }, () => ({
-      full_name: '',
-      age: '',
-      gender: 'Male',
-      passport_number: '',
-    }))
-  );
-  const [contactEmail, setContactEmail] = useState('');
-  const [contactPhone, setContactPhone] = useState('');
-
-  // Simulated payment fields
-  const [paymentMethod, setPaymentMethod] = useState('Card');
-  const [cardholderName, setCardholderName] = useState('');
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-
-  const [errorMsg, setErrorMsg] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [confirmedBooking, setConfirmedBooking] = useState<ConfirmedBooking | null>(null);
 
   const handlePassengerChange = (
     index: number,
@@ -92,8 +108,8 @@ export default function BookingPage() {
         travel_hours: flight.travel_hours,
         ticket_count: ticketCount,
         total_price: totalPrice.toFixed(2),
-        contact_email: contactEmail,
-        contact_phone: contactPhone,
+        contact_email: checkout.contactEmail,
+        contact_phone: checkout.contactPhone,
         passengers,
       });
 
@@ -120,7 +136,8 @@ export default function BookingPage() {
             Reference #{confirmedBooking.id}
           </h2>
           <p className="text-sm text-gray-600 mt-1">
-            Payment simulated via {paymentMethod}. Your booking is confirmed.
+            Payment processed via {checkout.paymentMethod}. Your booking is
+            confirmed.
           </p>
         </div>
 
@@ -128,16 +145,21 @@ export default function BookingPage() {
           <div>
             <p className="text-gray-500">Route</p>
             <p className="font-bold text-gray-900">
-              {confirmedBooking.departure_airport} &rarr; {confirmedBooking.arrival_airport}
+              {confirmedBooking.departure_airport} &rarr;{' '}
+              {confirmedBooking.arrival_airport}
             </p>
           </div>
           <div>
             <p className="text-gray-500">Flight</p>
-            <p className="font-bold text-gray-900">{confirmedBooking.flight_number}</p>
+            <p className="font-bold text-gray-900">
+              {confirmedBooking.flight_number}
+            </p>
           </div>
           <div>
             <p className="text-gray-500">Tickets</p>
-            <p className="font-bold text-gray-900">{confirmedBooking.ticket_count}</p>
+            <p className="font-bold text-gray-900">
+              {confirmedBooking.ticket_count}
+            </p>
           </div>
           <div>
             <p className="text-gray-500">Amount Paid</p>
@@ -177,21 +199,14 @@ export default function BookingPage() {
         </button>
       </div>
 
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-wrap justify-between items-center gap-4">
-        <div>
-          <p className="text-sm text-gray-500">Flight {flight.flight_number}</p>
-          <p className="text-2xl font-bold">
-            {flight.departure_airport} &rarr; {flight.arrival_airport}
-          </p>
-          <p className="text-sm text-gray-600">Departure: {flight.departure_time}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-sm text-gray-500">
-            {ticketCount} {ticketCount === 1 ? 'Ticket' : 'Tickets'} &times; ${Number(flight.price).toFixed(2)}
-          </p>
-          <p className="text-3xl font-black text-blue-600">${totalPrice.toFixed(2)}</p>
-        </div>
-      </div>
+      <RouteSummaryCard
+        flightNumber={flight.flight_number}
+        departureAirport={flight.departure_airport}
+        arrivalAirport={flight.arrival_airport}
+        departureTime={flight.departure_time}
+        rightLabel={`${ticketCount} ${ticketCount === 1 ? 'Ticket' : 'Tickets'} × $${Number(flight.price).toFixed(2)}`}
+        rightValue={`$${totalPrice.toFixed(2)}`}
+      />
 
       {errorMsg && (
         <div className="bg-red-50 text-red-600 p-4 rounded-xl border border-red-200">
@@ -203,26 +218,22 @@ export default function BookingPage() {
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
           <h3 className="text-lg font-bold mb-4">Contact Details</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">Email</label>
-              <input
-                type="email"
-                required
-                className="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                value={contactEmail}
-                onChange={(e) => setContactEmail(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">Phone Number</label>
-              <input
-                type="tel"
-                required
-                className="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                value={contactPhone}
-                onChange={(e) => setContactPhone(e.target.value)}
-              />
-            </div>
+            <FormInput
+              label="Email"
+              name="contactEmail"
+              type="email"
+              required
+              value={checkout.contactEmail}
+              onChange={handleCheckoutChange}
+            />
+            <FormInput
+              label="Phone Number"
+              name="contactPhone"
+              type="tel"
+              required
+              value={checkout.contactPhone}
+              onChange={handleCheckoutChange}
+            />
           </div>
         </div>
 
@@ -233,111 +244,91 @@ export default function BookingPage() {
           >
             <h3 className="text-lg font-bold mb-4">Passenger {idx + 1}</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">Full Name</label>
-                <input
-                  type="text"
-                  required
-                  className="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                  value={passenger.full_name}
-                  onChange={(e) => handlePassengerChange(idx, 'full_name', e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">Age</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={120}
-                  required
-                  className="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                  value={passenger.age}
-                  onChange={(e) => handlePassengerChange(idx, 'age', e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">Gender</label>
-                <select
-                  className="w-full p-2.5 border rounded-lg outline-none bg-white"
-                  value={passenger.gender}
-                  onChange={(e) => handlePassengerChange(idx, 'gender', e.target.value)}
-                >
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">Passport / ID Number</label>
-                <input
-                  type="text"
-                  required
-                  className="w-full p-2.5 border rounded-lg outline-none uppercase focus:ring-2 focus:ring-blue-500"
-                  value={passenger.passport_number}
-                  onChange={(e) =>
-                    handlePassengerChange(idx, 'passport_number', e.target.value)
-                  }
-                />
-              </div>
+              <FormInput
+                label="Full Name"
+                type="text"
+                required
+                value={passenger.full_name}
+                onChange={(e) =>
+                  handlePassengerChange(idx, 'full_name', e.target.value)
+                }
+              />
+              <FormInput
+                label="Age"
+                type="number"
+                min={1}
+                max={120}
+                required
+                value={passenger.age}
+                onChange={(e) =>
+                  handlePassengerChange(idx, 'age', e.target.value)
+                }
+              />
+              <FormSelect
+                label="Gender"
+                options={GENDER_OPTIONS}
+                value={passenger.gender}
+                onChange={(e) =>
+                  handlePassengerChange(idx, 'gender', e.target.value)
+                }
+              />
+              <FormInput
+                label="Passport / ID Number"
+                type="text"
+                required
+                uppercase
+                value={passenger.passport_number}
+                onChange={(e) =>
+                  handlePassengerChange(idx, 'passport_number', e.target.value)
+                }
+              />
             </div>
           </div>
         ))}
 
-        {/* Simulated Payment Section */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-bold">Payment</h3>
             <span className="text-xs bg-amber-100 text-amber-800 px-2.5 py-1 rounded font-semibold">
-              Payment
+              Checkout
             </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">Payment Method</label>
-              <select
-                className="w-full p-2.5 border rounded-lg outline-none bg-white"
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-              >
-                <option value="Card">Credit / Debit Card</option>
-                <option value="UPI">UPI / Instant Transfer</option>
-                <option value="Wallet">Travel Wallet</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">Cardholder / Payer Name</label>
-              <input
-                type="text"
-                required
-                placeholder="Full name"
-                className="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                value={cardholderName}
-                onChange={(e) => setCardholderName(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">Card / Reference Number</label>
-              <input
-                type="text"
-                required
-                placeholder="4242 •••• •••• 4242"
-                className="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                value={cardNumber}
-                onChange={(e) => setCardNumber(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">Expiry (MM/YY)</label>
-              <input
-                type="text"
-                required
-                placeholder="12/28"
-                className="w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                value={cardExpiry}
-                onChange={(e) => setCardExpiry(e.target.value)}
-              />
-            </div>
+            <FormSelect
+              label="Payment Method"
+              name="paymentMethod"
+              options={PAYMENT_OPTIONS}
+              value={checkout.paymentMethod}
+              onChange={handleCheckoutChange}
+            />
+            <FormInput
+              label="Cardholder / Payer Name"
+              name="cardholderName"
+              type="text"
+              required
+              placeholder="Full name"
+              value={checkout.cardholderName}
+              onChange={handleCheckoutChange}
+            />
+            <FormInput
+              label="Card / Reference Number"
+              name="cardNumber"
+              type="text"
+              required
+              placeholder="4242 •••• •••• 4242"
+              value={checkout.cardNumber}
+              onChange={handleCheckoutChange}
+            />
+            <FormInput
+              label="Expiry (MM/YY)"
+              name="cardExpiry"
+              type="text"
+              required
+              placeholder="12/28"
+              value={checkout.cardExpiry}
+              onChange={handleCheckoutChange}
+            />
           </div>
         </div>
 

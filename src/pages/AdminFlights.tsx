@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { axiosPrivate } from '../api/axios';
+import StatusBadge from '../components/StatusBadge';
 
 export interface ManagedFlight {
   id: number;
@@ -13,22 +14,13 @@ export interface ManagedFlight {
   status: string;
 }
 
-const STATUS_OPTIONS = ['On-Time', 'Delayed', 'Boarding', 'Cancelled', 'Landed'];
-
-function getStatusBadgeClass(status: string): string {
-  switch ((status || '').toLowerCase()) {
-    case 'delayed':
-      return 'bg-amber-100 text-amber-800';
-    case 'cancelled':
-      return 'bg-red-100 text-red-700';
-    case 'boarding':
-      return 'bg-indigo-100 text-indigo-800';
-    case 'landed':
-      return 'bg-gray-200 text-gray-800';
-    default:
-      return 'bg-emerald-100 text-emerald-800';
-  }
-}
+const STATUS_OPTIONS = [
+  'On-Time',
+  'Delayed',
+  'Boarding',
+  'Cancelled',
+  'Landed',
+];
 
 export default function AdminFlights() {
   const [flights, setFlights] = useState<ManagedFlight[]>([]);
@@ -60,7 +52,9 @@ export default function AdminFlights() {
       }
       if (isSync) {
         params.sync = 'true';
-        const depCode = (options?.departure ?? syncAirport).trim().toUpperCase();
+        const depCode = (options?.departure ?? syncAirport)
+          .trim()
+          .toUpperCase();
         if (depCode) {
           params.departure = depCode;
         }
@@ -87,7 +81,9 @@ export default function AdminFlights() {
       setDraftStatuses(initialDrafts);
 
       if (isSync) {
-        setSuccessMsg(`Synced flights from ${params.departure || 'AirLabs'}.`);
+        setSuccessMsg(
+          `Synced flights from ${params.departure || 'AirLabs'}.`
+        );
       }
     } catch (error: any) {
       setErrorMsg(
@@ -128,9 +124,10 @@ export default function AdminFlights() {
     setSuccessMsg('');
 
     try {
-      const res = await axiosPrivate.put(`admin/flights/${flight.id}/status/`, {
-        status: nextStatus,
-      });
+      const res = await axiosPrivate.put(
+        `admin/flights/${flight.id}/status/`,
+        { status: nextStatus }
+      );
 
       const updated: ManagedFlight = res.data;
       setFlights((prev) =>
@@ -148,9 +145,14 @@ export default function AdminFlights() {
         `Flight ${updated.flight_number} status updated to "${updated.status}".`
       );
     } catch (error: any) {
+      const data = error.response?.data;
+      const statusFieldError = Array.isArray(data?.status)
+        ? data.status[0]
+        : '';
       setErrorMsg(
-        error.response?.data?.error ||
-          error.response?.data?.detail ||
+        statusFieldError ||
+          data?.error ||
+          data?.detail ||
           `Failed to update status for flight ${flight.flight_number}.`
       );
     } finally {
@@ -240,7 +242,8 @@ export default function AdminFlights() {
           {flights.map((flight) => {
             const currentDraft = draftStatuses[flight.id] ?? flight.status;
             const hasChanged =
-              currentDraft.toLowerCase() !== (flight.status || '').toLowerCase();
+              currentDraft.toLowerCase() !==
+              (flight.status || '').toLowerCase();
 
             return (
               <div
@@ -252,13 +255,7 @@ export default function AdminFlights() {
                     <span className="font-bold text-gray-900 text-lg">
                       Flight {flight.flight_number}
                     </span>
-                    <span
-                      className={`text-xs font-bold px-2.5 py-0.5 rounded uppercase ${getStatusBadgeClass(
-                        flight.status
-                      )}`}
-                    >
-                      {flight.status}
-                    </span>
+                    <StatusBadge status={flight.status} />
                   </div>
                   <p className="text-xl font-bold text-gray-900">
                     {flight.departure_airport} &rarr; {flight.arrival_airport}
@@ -273,7 +270,9 @@ export default function AdminFlights() {
                   <select
                     aria-label={`Status for ${flight.flight_number}`}
                     value={currentDraft}
-                    onChange={(e) => handleStatusChange(flight.id, e.target.value)}
+                    onChange={(e) =>
+                      handleStatusChange(flight.id, e.target.value)
+                    }
                     className="p-2.5 border border-gray-300 rounded-lg bg-white text-sm font-medium outline-none"
                   >
                     {STATUS_OPTIONS.map((opt) => (
