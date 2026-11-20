@@ -324,13 +324,6 @@ export default function FlightSearch() {
       <div className="w-full md:w-1/4 bg-white p-6 rounded-xl shadow-sm border border-gray-100 h-fit">
         <div className="flex justify-between items-center mb-4 border-b pb-2">
           <h2 className="text-xl font-bold">Filter Flights</h2>
-          <button
-            type="button"
-            onClick={handleClearFilters}
-            className="text-sm text-red-600 hover:text-red-700 font-medium"
-          >
-            Clear Filters
-          </button>
         </div>
 
         <form onSubmit={handleSearch} className="space-y-4">
