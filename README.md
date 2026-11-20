@@ -103,4 +103,12 @@ Frontend web application for **AirBooking**, built with React, TypeScript, Vite,
 git clone <your-frontend-repo-url>
 open your folder
 npm install
+
+1.admin/superuser:-
+username : admin
+password : admin
+
+2. user:-
+username : shibi
+password : 123456
 >>>>>>> 0d6e2059fec229af731cd21ef3e74ac6a8875322
