@@ -75,5 +75,32 @@ export default defineConfig([
 
 ```
 =======
-# Airbooking_frontend
+# AirBooking — Frontend (React, TypeScript & Tailwind CSS)
+
+Frontend web application for **AirBooking**, built with React, TypeScript, Vite, Tailwind CSS, React Router, and Axios.
+
+## Features
+
+- **Authentication & Route Protection**: User registration, JWT login, automatic token refresh via `axiosPrivate`, and admin/user route guards.
+- **Flight Search, Filtering & Sorting**: Search upcoming flights by departure/arrival airport IATA code, travel date (from the current date onward), minimum available seats, price range, and maximum travel hours; sort by departure date, price, or travel duration.
+- **Real-Time Status Synchronization**: Displays `On-Time`, `Delayed`, `Boarding`, `Cancelled`, and `Landed` statuses and updates open user windows automatically via `BroadcastChannel`, `localStorage` events, and background polling without manual page reloads.
+- **Flight Selection & Booking**: Select eligible flights and manage personal bookings.
+- **Admin User Approvals**: Filter registrations (`Pending`, `Approved`, `Rejected`, `All`) and approve or reject users with inline confirmation.
+- **Admin Flight Management**: Sync schedules from AirLabs by airport IATA code, filter flights by status, and update flight statuses in real time.
+
+## Tech Stack
+
+- **Framework & Language**: React, TypeScript, Vite
+- **Styling**: Tailwind CSS
+- **Routing**: React Router (`react-router-dom`)
+- **HTTP Client**: Axios (`axiosAuth` & `axiosPrivate` interceptors)
+
+## Setup & Installation
+
+### 1. Clone the Repository and Install Dependencies
+
+```bash
+git clone <your-frontend-repo-url>
+cd D:\Django\Projects\Airbooking\frontend
+npm install
 >>>>>>> 0d6e2059fec229af731cd21ef3e74ac6a8875322
