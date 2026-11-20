@@ -101,6 +101,6 @@ Frontend web application for **AirBooking**, built with React, TypeScript, Vite,
 
 ```bash
 git clone <your-frontend-repo-url>
-cd D:\Django\Projects\Airbooking\frontend
+open your folder
 npm install
 >>>>>>> 0d6e2059fec229af731cd21ef3e74ac6a8875322
