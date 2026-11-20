@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { axiosPrivate } from '../api/axios';
-
+import ConfirmActionGroup from '../components/ConfirmActionGroup';
+import StatusBadge from '../components/StatusBadge';
 
 interface Passenger {
   full_name: string;
@@ -54,8 +55,9 @@ export default function MyTrips() {
   const [confirmTarget, setConfirmTarget] = useState<ConfirmTarget>(null);
   const [actionKey, setActionKey] = useState<string | null>(null);
 
-  // Real-time flight status states per booking ID
-  const [liveStatuses, setLiveStatuses] = useState<Record<number, LiveStatus>>({});
+  const [liveStatuses, setLiveStatuses] = useState<Record<number, LiveStatus>>(
+    {}
+  );
   const [statusErrors, setStatusErrors] = useState<Record<number, string>>({});
   const [loadingStatusId, setLoadingStatusId] = useState<number | null>(null);
 
@@ -75,7 +77,10 @@ export default function MyTrips() {
     fetchBookings();
   }, []);
 
-  const handleCheckLiveStatus = async (bookingId: number, flightNumber: string) => {
+  const handleCheckLiveStatus = async (
+    bookingId: number,
+    flightNumber: string
+  ) => {
     setLoadingStatusId(bookingId);
     setStatusErrors((prev) => ({ ...prev, [bookingId]: '' }));
 
@@ -108,7 +113,10 @@ export default function MyTrips() {
     try {
       const payload =
         passengerIndex !== undefined ? { passenger_index: passengerIndex } : {};
-      const res = await axiosPrivate.post(`bookings/${bookingId}/cancel/`, payload);
+      const res = await axiosPrivate.post(
+        `bookings/${bookingId}/cancel/`,
+        payload
+      );
 
       setBookings((prev) =>
         prev.map((b) => (b.id === bookingId ? res.data : b))
@@ -122,8 +130,8 @@ export default function MyTrips() {
     } catch (error: any) {
       setErrorMsg(
         error.response?.data?.error ||
-        error.response?.data?.detail ||
-        'Failed to cancel ticket.'
+          error.response?.data?.detail ||
+          'Failed to cancel ticket.'
       );
     } finally {
       setActionKey(null);
@@ -144,8 +152,8 @@ export default function MyTrips() {
     } catch (error: any) {
       setErrorMsg(
         error.response?.data?.error ||
-        error.response?.data?.detail ||
-        'Failed to delete trip.'
+          error.response?.data?.detail ||
+          'Failed to delete trip.'
       );
     } finally {
       setActionKey(null);
@@ -211,17 +219,10 @@ export default function MyTrips() {
               >
                 <div className="flex flex-wrap justify-between items-start border-b pb-4 gap-4">
                   <div>
-                    <span
-                      className={`text-xs font-bold px-2.5 py-1 rounded uppercase ${
-                        isCancelled
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-green-100 text-green-800'
-                      }`}
-                    >
-                      {booking.status}
-                    </span>
+                    <StatusBadge status={booking.status} />
                     <h3 className="text-2xl font-bold mt-2">
-                      {booking.departure_airport} &rarr; {booking.arrival_airport}
+                      {booking.departure_airport} &rarr;{' '}
+                      {booking.arrival_airport}
                     </h3>
                     <p className="text-sm text-gray-600">
                       Flight {booking.flight_number} &bull; Departure:{' '}
@@ -233,7 +234,9 @@ export default function MyTrips() {
                     <div>
                       <p className="text-sm text-gray-500">
                         {booking.ticket_count}{' '}
-                        {booking.ticket_count === 1 ? 'Active Ticket' : 'Active Tickets'}
+                        {booking.ticket_count === 1
+                          ? 'Active Ticket'
+                          : 'Active Tickets'}
                       </p>
                       <p className="text-2xl font-black text-blue-600">
                         ${Number(booking.total_price).toFixed(2)}
@@ -244,8 +247,12 @@ export default function MyTrips() {
                       {!isCancelled && (
                         <>
                           <button
+                            type="button"
                             onClick={() =>
-                              handleCheckLiveStatus(booking.id, booking.flight_number)
+                              handleCheckLiveStatus(
+                                booking.id,
+                                booking.flight_number
+                              )
                             }
                             disabled={loadingStatusId === booking.id}
                             className="border border-blue-300 text-blue-600 hover:bg-blue-50 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
@@ -257,80 +264,51 @@ export default function MyTrips() {
                               : 'Check Live Status'}
                           </button>
 
-                          {isConfirmingGroup ? (
-                            <>
-                              <button
-                                onClick={() => handleCancel(booking.id)}
-                                disabled={actionKey === `${booking.id}-group`}
-                                className="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50"
-                              >
-                                {actionKey === `${booking.id}-group`
-                                  ? 'Cancelling...'
-                                  : 'Confirm Cancel'}
-                              </button>
-                              <button
-                                onClick={() => setConfirmTarget(null)}
-                                className="border border-gray-300 text-gray-700 hover:bg-gray-50 text-xs font-semibold px-3 py-1.5 rounded-lg"
-                              >
-                                Keep
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              onClick={() =>
-                                setConfirmTarget({
-                                  bookingId: booking.id,
-                                  type: 'group',
-                                })
-                              }
-                              className="border border-red-300 text-red-600 hover:bg-red-50 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-                            >
-                              {isGroupBooking ? 'Cancel Group' : 'Cancel Ticket'}
-                            </button>
-                          )}
+                          <ConfirmActionGroup
+                            isConfirming={isConfirmingGroup}
+                            isProcessing={actionKey === `${booking.id}-group`}
+                            triggerLabel={
+                              isGroupBooking ? 'Cancel Group' : 'Cancel Ticket'
+                            }
+                            confirmLabel="Confirm Cancel"
+                            processingLabel="Cancelling..."
+                            cancelLabel="Keep"
+                            variant="red"
+                            onStartConfirm={() =>
+                              setConfirmTarget({
+                                bookingId: booking.id,
+                                type: 'group',
+                              })
+                            }
+                            onConfirm={() => handleCancel(booking.id)}
+                            onCancel={() => setConfirmTarget(null)}
+                          />
                         </>
                       )}
 
                       {isCancelled && (
-                        <>
-                          {isConfirmingDelete ? (
-                            <>
-                              <button
-                                onClick={() => handleDelete(booking.id)}
-                                disabled={actionKey === `${booking.id}-delete`}
-                                className="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50"
-                              >
-                                {actionKey === `${booking.id}-delete`
-                                  ? 'Deleting...'
-                                  : 'Confirm Delete'}
-                              </button>
-                              <button
-                                onClick={() => setConfirmTarget(null)}
-                                className="border border-gray-300 text-gray-700 hover:bg-gray-50 text-xs font-semibold px-3 py-1.5 rounded-lg"
-                              >
-                                Keep
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              onClick={() =>
-                                setConfirmTarget({
-                                  bookingId: booking.id,
-                                  type: 'delete',
-                                })
-                              }
-                              className="border border-gray-300 text-gray-700 hover:bg-red-50 hover:text-red-600 hover:border-red-300 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-                            >
-                              Delete Trip
-                            </button>
-                          )}
-                        </>
+                        <ConfirmActionGroup
+                          isConfirming={isConfirmingDelete}
+                          isProcessing={actionKey === `${booking.id}-delete`}
+                          triggerLabel="Delete Trip"
+                          confirmLabel="Confirm Delete"
+                          processingLabel="Deleting..."
+                          cancelLabel="Keep"
+                          variant="red"
+                          onStartConfirm={() =>
+                            setConfirmTarget({
+                              bookingId: booking.id,
+                              type: 'delete',
+                            })
+                          }
+                          onConfirm={() => handleDelete(booking.id)}
+                          onCancel={() => setConfirmTarget(null)}
+                        />
                       )}
                     </div>
                   </div>
                 </div>
 
-                {/* Inline Real-Time Flight Status Panel */}
                 {!isCancelled && liveError && (
                   <div className="bg-amber-50 text-amber-800 text-sm p-3 rounded-lg border border-amber-200">
                     {liveError}
@@ -343,15 +321,15 @@ export default function MyTrips() {
                       <span className="text-xs font-bold uppercase text-blue-800 tracking-wide">
                         Live Flight Status
                       </span>
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded bg-blue-100 text-blue-800 uppercase">
-                        {liveData.status}
-                      </span>
+                      <StatusBadge status={liveData.status} />
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                       <div>
                         <p className="text-xs text-gray-500">Delay</p>
                         <p className="font-semibold text-gray-900">
-                          {liveData.delayed ? `${liveData.delayed} mins` : 'On Time'}
+                          {liveData.delayed
+                            ? `${liveData.delayed} mins`
+                            : 'On Time'}
                         </p>
                       </div>
                       <div>
@@ -376,7 +354,6 @@ export default function MyTrips() {
                   </div>
                 )}
 
-                {/* Passengers List */}
                 <div>
                   <h4 className="text-sm font-semibold text-gray-700 mb-2">
                     Passengers
@@ -422,36 +399,24 @@ export default function MyTrips() {
                                 Cancelled
                               </span>
                             ) : isGroupBooking ? (
-                              isConfirmingPassenger ? (
-                                <div className="flex gap-1.5">
-                                  <button
-                                    onClick={() => handleCancel(booking.id, idx)}
-                                    disabled={actionKey === pKey}
-                                    className="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-2.5 py-1 rounded disabled:opacity-50"
-                                  >
-                                    {actionKey === pKey ? '...' : 'Confirm'}
-                                  </button>
-                                  <button
-                                    onClick={() => setConfirmTarget(null)}
-                                    className="border border-gray-300 text-gray-700 hover:bg-white text-xs px-2 py-1 rounded"
-                                  >
-                                    Keep
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={() =>
-                                    setConfirmTarget({
-                                      bookingId: booking.id,
-                                      type: 'passenger',
-                                      passengerIndex: idx,
-                                    })
-                                  }
-                                  className="text-xs font-semibold text-red-600 hover:text-red-700 border border-red-200 hover:bg-red-50 px-2.5 py-1 rounded transition-colors"
-                                >
-                                  Cancel
-                                </button>
-                              )
+                              <ConfirmActionGroup
+                                isConfirming={isConfirmingPassenger}
+                                isProcessing={actionKey === pKey}
+                                triggerLabel="Cancel"
+                                confirmLabel="Confirm"
+                                processingLabel="..."
+                                cancelLabel="Keep"
+                                variant="red"
+                                onStartConfirm={() =>
+                                  setConfirmTarget({
+                                    bookingId: booking.id,
+                                    type: 'passenger',
+                                    passengerIndex: idx,
+                                  })
+                                }
+                                onConfirm={() => handleCancel(booking.id, idx)}
+                                onCancel={() => setConfirmTarget(null)}
+                              />
                             ) : null}
                           </div>
                         </div>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import RouteSummaryCard from '../components/RouteSummaryCard';
 import type { LiveFlight } from './FlightSearch';
 
 export default function FlightSelection() {
@@ -26,21 +27,17 @@ export default function FlightSelection() {
   const { flight } = state;
   const maxSeats = Math.max(
     1,
-    Math.min(10, flight.available_seats && flight.available_seats > 0 ? flight.available_seats : 10)
+    Math.min(
+      10,
+      flight.available_seats && flight.available_seats > 0
+        ? flight.available_seats
+        : 10
+    )
   );
   const totalPrice = Number(flight.price) * seatCount;
 
   const updateSeatCount = (delta: number) => {
     setSeatCount((prev) => Math.max(1, Math.min(maxSeats, prev + delta)));
-  };
-
-  const handleProceedToBooking = () => {
-    navigate('/book', {
-      state: {
-        flight,
-        ticketCount: seatCount,
-      },
-    });
   };
 
   return (
@@ -55,81 +52,89 @@ export default function FlightSelection() {
         </button>
       </div>
 
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-6">
-        <div className="flex justify-between items-center border-b pb-4">
-          <div>
-            <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-1 rounded uppercase">
-              {flight.status || 'Scheduled'}
-            </span>
-            <h3 className="text-2xl font-bold mt-2">
-              {flight.departure_airport} &rarr; {flight.arrival_airport}
-            </h3>
-            <p className="text-sm text-gray-600">Flight {flight.flight_number}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-gray-500">Fare per Ticket</p>
-            <p className="text-2xl font-bold text-gray-900">
-              ${Number(flight.price).toFixed(2)}
-            </p>
-          </div>
-        </div>
+      <div className="space-y-6">
+        <RouteSummaryCard
+          flightNumber={flight.flight_number}
+          departureAirport={flight.departure_airport}
+          arrivalAirport={flight.arrival_airport}
+          departureTime={flight.departure_time}
+          status={flight.status || 'On-Time'}
+          rightLabel="Fare per Ticket"
+          rightValue={`$${Number(flight.price).toFixed(2)}`}
+        />
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-gray-50 p-4 rounded-xl text-sm">
-          <div>
-            <p className="text-gray-500">Departure Time</p>
-            <p className="font-semibold text-gray-900">{flight.departure_time}</p>
-          </div>
-          <div>
-            <p className="text-gray-500">Duration</p>
-            <p className="font-semibold text-gray-900">{flight.travel_hours} hrs</p>
-          </div>
-          <div>
-            <p className="text-gray-500">Availability</p>
-            <p className="font-semibold text-emerald-700">
-              {flight.available_seats !== undefined
-                ? `${flight.available_seats} tickets available`
-                : 'Available'}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap justify-between items-center border-t pt-6 gap-4">
-          <div>
-            <p className="text-sm font-semibold text-gray-800 mb-2">Number of Tickets</p>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => updateSeatCount(-1)}
-                className="w-9 h-9 rounded-lg border border-gray-300 font-bold hover:bg-gray-100"
-              >
-                -
-              </button>
-              <span className="w-8 text-center font-bold text-lg">{seatCount}</span>
-              <button
-                type="button"
-                onClick={() => updateSeatCount(1)}
-                className="w-9 h-9 rounded-lg border border-gray-300 font-bold hover:bg-gray-100"
-              >
-                +
-              </button>
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-gray-50 p-4 rounded-xl text-sm">
+            <div>
+              <p className="text-gray-500">Departure Time</p>
+              <p className="font-semibold text-gray-900">
+                {flight.departure_time}
+              </p>
+            </div>
+            <div>
+              <p className="text-gray-500">Duration</p>
+              <p className="font-semibold text-gray-900">
+                {flight.travel_hours} hrs
+              </p>
+            </div>
+            <div>
+              <p className="text-gray-500">Availability</p>
+              <p className="font-semibold text-emerald-700">
+                {flight.available_seats !== undefined
+                  ? `${flight.available_seats} tickets available`
+                  : 'Available'}
+              </p>
             </div>
           </div>
 
-          <div className="text-right">
-            <p className="text-xs text-gray-500">
-              Total ({seatCount} {seatCount === 1 ? 'ticket' : 'tickets'})
-            </p>
-            <p className="text-3xl font-black text-blue-600">${totalPrice.toFixed(2)}</p>
-          </div>
-        </div>
+          <div className="flex flex-wrap justify-between items-center border-t pt-6 gap-4">
+            <div>
+              <p className="text-sm font-semibold text-gray-800 mb-2">
+                Number of Tickets
+              </p>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => updateSeatCount(-1)}
+                  className="w-9 h-9 rounded-lg border border-gray-300 font-bold hover:bg-gray-100"
+                >
+                  -
+                </button>
+                <span className="w-8 text-center font-bold text-lg">
+                  {seatCount}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => updateSeatCount(1)}
+                  className="w-9 h-9 rounded-lg border border-gray-300 font-bold hover:bg-gray-100"
+                >
+                  +
+                </button>
+              </div>
+            </div>
 
-        <button
-          type="button"
-          onClick={handleProceedToBooking}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3.5 rounded-xl transition-colors"
-        >
-          Continue to Booking
-        </button>
+            <div className="text-right">
+              <p className="text-xs text-gray-500">
+                Total ({seatCount} {seatCount === 1 ? 'ticket' : 'tickets'})
+              </p>
+              <p className="text-3xl font-black text-blue-600">
+                ${totalPrice.toFixed(2)}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              navigate('/book', {
+                state: { flight, ticketCount: seatCount },
+              })
+            }
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3.5 rounded-xl transition-colors"
+          >
+            Continue to Booking
+          </button>
+        </div>
       </div>
     </div>
   );

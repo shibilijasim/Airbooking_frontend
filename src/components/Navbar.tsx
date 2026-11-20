@@ -1,23 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { clearAuthSession, readAuthState } from '../utils/auth';
 
-function readAuthState() {
-  return {
-    isAuthenticated: Boolean(localStorage.getItem('access_token')),
-    isAdmin:
-      localStorage.getItem('is_staff') === 'true' ||
-      localStorage.getItem('is_admin') === 'true',
-  };
-}
+const NAV_LINK_CLASS = 'font-medium text-gray-700 hover:text-blue-600';
 
 export default function Navbar() {
   const navigate = useNavigate();
   const [auth, setAuth] = useState(readAuthState);
 
   useEffect(() => {
-    const syncAuth = () => {
-      setAuth(readAuthState());
-    };
+    const syncAuth = () => setAuth(readAuthState());
     window.addEventListener('auth-change', syncAuth);
     window.addEventListener('storage', syncAuth);
     return () => {
@@ -27,13 +19,7 @@ export default function Navbar() {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('username');
-    localStorage.removeItem('is_staff');
-    localStorage.removeItem('is_admin');
-    setAuth({ isAuthenticated: false, isAdmin: false });
-    window.dispatchEvent(new Event('auth-change'));
+    setAuth(clearAuthSession());
     navigate('/login', { replace: true });
   };
 
@@ -52,32 +38,20 @@ export default function Navbar() {
             {auth.isAuthenticated ? (
               <>
                 {auth.isAdmin ? (
-                  // <Link
-                  //   to="/admin/users"
-                  //   className="font-medium text-gray-700 hover:text-blue-600"
-                  // >
-                  //   User Approvals
-                  // </Link>
                   <>
-                  <Link to="/admin/users" className="font-medium text-gray-700 hover:text-blue-600">
-                    User Approvals
-                  </Link>
-                  <Link to="/admin/flights" className="font-medium text-gray-700 hover:text-blue-600">
-                    Flight Management
-                  </Link>
+                    <Link to="/admin/users" className={NAV_LINK_CLASS}>
+                      User Approvals
+                    </Link>
+                    <Link to="/admin/flights" className={NAV_LINK_CLASS}>
+                      Flight Management
+                    </Link>
                   </>
                 ) : (
                   <>
-                    <Link
-                      to="/search"
-                      className="font-medium text-gray-700 hover:text-blue-600"
-                    >
+                    <Link to="/search" className={NAV_LINK_CLASS}>
                       Flight Search
                     </Link>
-                    <Link
-                      to="/my-trips"
-                      className="font-medium text-gray-700 hover:text-blue-600"
-                    >
+                    <Link to="/my-trips" className={NAV_LINK_CLASS}>
                       My Trips
                     </Link>
                   </>
@@ -92,10 +66,7 @@ export default function Navbar() {
               </>
             ) : (
               <>
-                <Link
-                  to="/login"
-                  className="text-gray-600 hover:text-blue-600 font-medium"
-                >
+                <Link to="/login" className={NAV_LINK_CLASS}>
                   Login
                 </Link>
                 <Link

@@ -1,6 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
-import { axiosPrivate } from '../api/axios';
 import { useNavigate } from 'react-router-dom';
+import { axiosPrivate } from '../api/axios';
+import { FormInput, FormSelect } from '../components/FormFields';
+import StatusBadge from '../components/StatusBadge';
+import { useFormFields } from '../hooks/useFormFields';
+import {
+  getTodayDateString,
+  normalizeDisplayStatus,
+  parseDepartureTimestamp,
+} from '../utils/flightFormat';
 
 export interface LiveFlight {
   id?: number;
@@ -14,43 +22,34 @@ export interface LiveFlight {
   available_seats?: number;
 }
 
-function getTodayDateString(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+const SEAT_OPTIONS = [
+  { label: 'Any Available (1+ seats)', value: '1' },
+  { label: '2+ seats available', value: '2' },
+  { label: '4+ seats available', value: '4' },
+  { label: '6+ seats available', value: '6' },
+];
 
-function parseDepartureTimestamp(raw: string): number {
-  if (!raw) return Number.NaN;
-  const normalized = raw.replace(' UTC', 'Z').replace(' ', 'T');
-  const parsed = Date.parse(normalized);
-  if (!Number.isNaN(parsed)) return parsed;
-  return Date.parse(raw);
-}
+const SORT_BY_OPTIONS = [
+  { label: 'Sort by Date', value: 'departure_time' },
+  { label: 'Sort by Price', value: 'price' },
+  { label: 'Sort by Travel Hours', value: 'travel_hours' },
+];
 
-function normalizeDisplayStatus(raw?: string): string {
-  const cleaned = (raw || '').trim().toLowerCase();
-  if (!cleaned || cleaned === 'scheduled' || cleaned === 'on-time' || cleaned === 'ontime') {
-    return 'On-Time';
-  }
-  if (cleaned === 'delayed') {
-    return 'Delayed';
-  }
-  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
-}
+const SORT_ORDER_OPTIONS = [
+  { label: 'Ascending ↑', value: 'asc' },
+  { label: 'Descending ↓', value: 'desc' },
+];
 
-function isEligibleFlight(flight: LiveFlight, todayStr: string, exactDate: string): boolean {
+function isEligibleFlight(
+  flight: LiveFlight,
+  todayStr: string,
+  exactDate: string
+): boolean {
   const statusLower = (flight.status || '').toLowerCase().trim();
-  if (statusLower.includes('arrived')) {
-    return false;
-  }
+  if (statusLower.includes('arrived')) return false;
 
   const seats = flight.available_seats ?? 18;
-  if (seats <= 0) {
-    return false;
-  }
+  if (seats <= 0) return false;
 
   if (flight.departure_time) {
     const datePart = flight.departure_time.slice(0, 10);
@@ -75,56 +74,47 @@ export default function FlightSearch() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Filters: airport, date (from current date onward), min seats, price, travel hours
-  const [departure, setDeparture] = useState('CCJ');
-  const [arrival, setArrival] = useState('');
-  const [flightDate, setFlightDate] = useState('');
-  const [minSeats, setMinSeats] = useState('1');
-  const [minPrice, setMinPrice] = useState('');
-  const [maxPrice, setMaxPrice] = useState('');
-  const [maxHours, setMaxHours] = useState('');
+  const {
+    values: filters,
+    handleChange: handleFilterChange,
+    reset: resetFilters,
+  } = useFormFields({
+    departure: 'CCJ',
+    arrival: '',
+    flightDate: '',
+    minSeats: '1',
+    minPrice: '',
+    maxPrice: '',
+    maxHours: '',
+    sortBy: 'departure_time',
+    sortOrder: 'asc',
+  });
 
-  // Sort States
-  const [sortBy, setSortBy] = useState('departure_time');
-  const [sortOrder, setSortOrder] = useState('asc');
+  const {
+    departure,
+    arrival,
+    flightDate,
+    minSeats,
+    minPrice,
+    maxPrice,
+    maxHours,
+    sortBy,
+    sortOrder,
+  } = filters;
 
   const fetchFlights = useCallback(
-    async (overrides?: {
-      departure?: string;
-      arrival?: string;
-      flightDate?: string;
-      minSeats?: string;
-      minPrice?: string;
-      maxPrice?: string;
-      maxHours?: string;
-      sortBy?: string;
-      sortOrder?: string;
-      silent?: boolean;
-    }) => {
+    async (
+      overrides?: Partial<typeof filters> & { silent?: boolean }
+    ) => {
       const token = localStorage.getItem('access_token');
       if (!token) {
         navigate('/login');
         return;
       }
 
-      const depVal = (
-        overrides?.departure !== undefined ? overrides.departure : departure
-      )
-        .trim()
-        .toUpperCase();
-      const arrVal = (
-        overrides?.arrival !== undefined ? overrides.arrival : arrival
-      )
-        .trim()
-        .toUpperCase();
-      const dateVal =
-        overrides?.flightDate !== undefined ? overrides.flightDate : flightDate;
-      const seatsVal =
-        overrides?.minSeats !== undefined ? overrides.minSeats : minSeats;
-      const activeSortBy =
-        overrides?.sortBy !== undefined ? overrides.sortBy : sortBy;
-      const activeSortOrder =
-        overrides?.sortOrder !== undefined ? overrides.sortOrder : sortOrder;
+      const active = { ...filters, ...overrides };
+      const depVal = active.departure.trim().toUpperCase();
+      const arrVal = active.arrival.trim().toUpperCase();
 
       if (!depVal && !arrVal) {
         setErrorMsg(
@@ -134,27 +124,22 @@ export default function FlightSearch() {
         return;
       }
 
-      if (!overrides?.silent) {
-        setLoading(true);
-      }
+      if (!overrides?.silent) setLoading(true);
       setErrorMsg('');
 
       try {
         const params: Record<string, string> = {
           departure: depVal,
           arrival: arrVal,
-          from_date: dateVal || todayStr,
-          min_price:
-            overrides?.minPrice !== undefined ? overrides.minPrice : minPrice,
-          max_price:
-            overrides?.maxPrice !== undefined ? overrides.maxPrice : maxPrice,
-          max_hours:
-            overrides?.maxHours !== undefined ? overrides.maxHours : maxHours,
-          sort_by: activeSortBy,
-          sort_order: activeSortOrder,
+          from_date: active.flightDate || todayStr,
+          min_price: active.minPrice,
+          max_price: active.maxPrice,
+          max_hours: active.maxHours,
+          sort_by: active.sortBy,
+          sort_order: active.sortOrder,
         };
-        if (dateVal) params.date = dateVal;
-        if (seatsVal) params.min_seats = seatsVal;
+        if (active.flightDate) params.date = active.flightDate;
+        if (active.minSeats) params.min_seats = active.minSeats;
 
         const response = await axiosPrivate.get('flights/live-search/', {
           params,
@@ -164,7 +149,7 @@ export default function FlightSearch() {
           : [];
 
         const seenKeys = new Set<string>();
-        const requiredSeats = Math.max(1, Number(seatsVal || '1'));
+        const requiredSeats = Math.max(1, Number(active.minSeats || '1'));
 
         let list: LiveFlight[] = [];
         for (const f of rawList) {
@@ -176,39 +161,36 @@ export default function FlightSearch() {
             available_seats: seats,
           };
 
-          if (!isEligibleFlight(normalizedFlight, todayStr, dateVal)) {
-            continue;
-          }
-          if (seats < requiredSeats) {
+          if (
+            !isEligibleFlight(normalizedFlight, todayStr, active.flightDate) ||
+            seats < requiredSeats
+          ) {
             continue;
           }
 
           const dedupeKey = `${normalizedFlight.flight_number}-${normalizedFlight.departure_airport}-${normalizedFlight.arrival_airport}-${normalizedFlight.departure_time}`;
-          if (seenKeys.has(dedupeKey)) {
-            continue;
-          }
+          if (seenKeys.has(dedupeKey)) continue;
           seenKeys.add(dedupeKey);
           list.push(normalizedFlight);
         }
 
         list = [...list].sort((a, b) => {
-          if (activeSortBy === 'departure_time') {
+          if (active.sortBy === 'departure_time') {
             const tsA = parseDepartureTimestamp(a.departure_time);
             const tsB = parseDepartureTimestamp(b.departure_time);
             const safeA = Number.isNaN(tsA) ? Number.MAX_SAFE_INTEGER : tsA;
             const safeB = Number.isNaN(tsB) ? Number.MAX_SAFE_INTEGER : tsB;
-            return activeSortOrder === 'desc' ? safeB - safeA : safeA - safeB;
+            return active.sortOrder === 'desc' ? safeB - safeA : safeA - safeB;
           }
-
           const valA =
-            activeSortBy === 'travel_hours'
+            active.sortBy === 'travel_hours'
               ? Number(a.travel_hours) || 0
               : Number(a.price) || 0;
           const valB =
-            activeSortBy === 'travel_hours'
+            active.sortBy === 'travel_hours'
               ? Number(b.travel_hours) || 0
               : Number(b.price) || 0;
-          return activeSortOrder === 'desc' ? valB - valA : valA - valB;
+          return active.sortOrder === 'desc' ? valB - valA : valA - valB;
         });
 
         setFlights(list);
@@ -222,27 +204,12 @@ export default function FlightSearch() {
           setFlights([]);
         }
       } finally {
-        if (!overrides?.silent) {
-          setLoading(false);
-        }
+        if (!overrides?.silent) setLoading(false);
       }
     },
-    [
-      arrival,
-      departure,
-      flightDate,
-      maxHours,
-      maxPrice,
-      minPrice,
-      minSeats,
-      navigate,
-      sortBy,
-      sortOrder,
-      todayStr,
-    ]
+    [filters, navigate, todayStr]
   );
 
-  // Lightweight background status sync so admin updates patch visible cards in place
   const syncFlightStatuses = useCallback(async () => {
     const token = localStorage.getItem('access_token');
     if (!token) return;
@@ -265,7 +232,6 @@ export default function FlightSearch() {
       const latestList: LiveFlight[] = Array.isArray(response.data)
         ? response.data
         : [];
-
       if (latestList.length === 0) return;
 
       const byId = new Map<number, string>();
@@ -273,9 +239,7 @@ export default function FlightSearch() {
 
       for (const item of latestList) {
         const normalized = normalizeDisplayStatus(item.status);
-        if (typeof item.id === 'number') {
-          byId.set(item.id, normalized);
-        }
+        if (typeof item.id === 'number') byId.set(item.id, normalized);
         const routeKey = `${(item.flight_number || '').toUpperCase()}|${(
           item.departure_airport || ''
         ).toUpperCase()}|${(item.arrival_airport || '').toUpperCase()}`;
@@ -288,7 +252,6 @@ export default function FlightSearch() {
           const routeKey = `${(f.flight_number || '').toUpperCase()}|${(
             f.departure_airport || ''
           ).toUpperCase()}|${(f.arrival_airport || '').toUpperCase()}`;
-
           const nextStatus =
             (typeof f.id === 'number' ? byId.get(f.id) : undefined) ||
             byFlightRoute.get(routeKey);
@@ -299,40 +262,27 @@ export default function FlightSearch() {
           }
           return f;
         });
-
         return changed ? nextFlights : prevFlights;
       });
     } catch {
-      // Keep current flight list intact if a background poll fails
+      // Ignore background poll errors
     }
   }, [arrival, departure, flightDate, todayStr]);
 
   useEffect(() => {
     fetchFlights();
-
-    const intervalId = window.setInterval(() => {
-      syncFlightStatuses();
-    }, 4000);
-
+    const intervalId = window.setInterval(() => syncFlightStatuses(), 4000);
     const channel =
       typeof BroadcastChannel !== 'undefined'
         ? new BroadcastChannel('airbooking_flight_status')
         : null;
 
-    const handleBroadcast = () => {
-      syncFlightStatuses();
-    };
-
+    const handleBroadcast = () => syncFlightStatuses();
     const handleStorage = (event: StorageEvent) => {
-      if (event.key === 'flight_status_updated_at') {
-        syncFlightStatuses();
-      }
+      if (event.key === 'flight_status_updated_at') syncFlightStatuses();
     };
-
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        syncFlightStatuses();
-      }
+      if (document.visibilityState === 'visible') syncFlightStatuses();
     };
 
     channel?.addEventListener('message', handleBroadcast);
@@ -354,16 +304,7 @@ export default function FlightSearch() {
   };
 
   const handleClearFilters = () => {
-    setDeparture('CCJ');
-    setArrival('');
-    setFlightDate('');
-    setMinSeats('1');
-    setMinPrice('');
-    setMaxPrice('');
-    setMaxHours('');
-    setSortBy('departure_time');
-    setSortOrder('asc');
-    fetchFlights({
+    const defaults = {
       departure: 'CCJ',
       arrival: '',
       flightDate: '',
@@ -373,133 +314,108 @@ export default function FlightSearch() {
       maxHours: '',
       sortBy: 'departure_time',
       sortOrder: 'asc',
-    });
-  };
-
-  const handleSelectFlight = (flight: LiveFlight) => {
-    navigate('/flights/select', { state: { flight } });
+    };
+    resetFilters(defaults);
+    fetchFlights(defaults);
   };
 
   return (
     <div className="w-full max-w-7xl mx-auto flex flex-col md:flex-row gap-6">
-      {/* Filter Sidebar */}
       <div className="w-full md:w-1/4 bg-white p-6 rounded-xl shadow-sm border border-gray-100 h-fit">
         <div className="flex justify-between items-center mb-4 border-b pb-2">
           <h2 className="text-xl font-bold">Filter Flights</h2>
-          {/* <button
+          <button
             type="button"
             onClick={handleClearFilters}
             className="text-sm text-red-600 hover:text-red-700 font-medium"
           >
             Clear Filters
-          </button> */}
+          </button>
         </div>
 
         <form onSubmit={handleSearch} className="space-y-4">
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">
-              Departure Airport (IATA)
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. CCJ"
-              className="w-full p-2 border rounded outline-none uppercase"
-              value={departure}
-              onChange={(e) => setDeparture(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">
-              Arrival Airport (IATA)
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. COK"
-              className="w-full p-2 border rounded outline-none uppercase"
-              value={arrival}
-              onChange={(e) => setArrival(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">
-              Travel Date (From {todayStr})
-            </label>
-            <input
-              type="date"
-              min={todayStr}
-              className="w-full p-2 border rounded outline-none bg-white"
-              value={flightDate}
-              onChange={(e) => setFlightDate(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">
-              Seat Availability (Min Seats)
-            </label>
-            <select
-              className="w-full p-2 border rounded outline-none bg-white"
-              value={minSeats}
-              onChange={(e) => setMinSeats(e.target.value)}
-            >
-              <option value="1">Any Available (1+ seats)</option>
-              <option value="2">2+ seats available</option>
-              <option value="4">4+ seats available</option>
-              <option value="6">6+ seats available</option>
-            </select>
-          </div>
+          <FormInput
+            label="Departure Airport (IATA)"
+            name="departure"
+            type="text"
+            compact
+            uppercase
+            placeholder="e.g. CCJ"
+            value={departure}
+            onChange={handleFilterChange}
+          />
+          <FormInput
+            label="Arrival Airport (IATA)"
+            name="arrival"
+            type="text"
+            compact
+            uppercase
+            placeholder="e.g. COK"
+            value={arrival}
+            onChange={handleFilterChange}
+          />
+          <FormInput
+            label={`Travel Date (From ${todayStr})`}
+            name="flightDate"
+            type="date"
+            compact
+            min={todayStr}
+            value={flightDate}
+            onChange={handleFilterChange}
+          />
+          <FormSelect
+            label="Seat Availability (Min Seats)"
+            name="minSeats"
+            compact
+            options={SEAT_OPTIONS}
+            value={minSeats}
+            onChange={handleFilterChange}
+          />
 
           <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">Min Price</label>
-              <input
-                type="number"
-                placeholder="$0"
-                className="w-full p-2 border rounded outline-none"
-                value={minPrice}
-                onChange={(e) => setMinPrice(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">Max Price</label>
-              <input
-                type="number"
-                placeholder="$1000"
-                className="w-full p-2 border rounded outline-none"
-                value={maxPrice}
-                onChange={(e) => setMaxPrice(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">
-              Max Travel Hours
-            </label>
-            <input
+            <FormInput
+              label="Min Price"
+              name="minPrice"
               type="number"
-              step="0.5"
-              placeholder="e.g. 5.5"
-              className="w-full p-2 border rounded outline-none"
-              value={maxHours}
-              onChange={(e) => setMaxHours(e.target.value)}
+              compact
+              placeholder="$0"
+              value={minPrice}
+              onChange={handleFilterChange}
+            />
+            <FormInput
+              label="Max Price"
+              name="maxPrice"
+              type="number"
+              compact
+              placeholder="$1000"
+              value={maxPrice}
+              onChange={handleFilterChange}
             />
           </div>
+
+          <FormInput
+            label="Max Travel Hours"
+            name="maxHours"
+            type="number"
+            step="0.5"
+            compact
+            placeholder="e.g. 5.5"
+            value={maxHours}
+            onChange={handleFilterChange}
+          />
 
           <div className="flex gap-2 pt-2">
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded transition-colors disabled:opacity-50"
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition-colors disabled:opacity-50"
             >
               {loading ? 'Searching...' : 'Search'}
             </button>
             <button
               type="button"
               onClick={handleClearFilters}
-              className="px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded transition-colors"
+              className="px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors"
             >
               Reset
             </button>
@@ -507,7 +423,6 @@ export default function FlightSearch() {
         </form>
       </div>
 
-      {/* Flights Results */}
       <div className="w-full md:w-3/4 space-y-6">
         {errorMsg && (
           <div className="bg-red-50 text-red-600 p-4 rounded-xl border border-red-200">
@@ -530,19 +445,26 @@ export default function FlightSearch() {
             <select
               className="p-2 border border-gray-300 rounded-lg outline-none bg-gray-50"
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
+              onChange={handleFilterChange}
+              name="sortBy"
             >
-              <option value="departure_time">Sort by Date</option>
-              <option value="price">Sort by Price</option>
-              <option value="travel_hours">Sort by Travel Hours</option>
+              {SORT_BY_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
             </select>
             <select
               className="p-2 border border-gray-300 rounded-lg outline-none bg-gray-50"
               value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value)}
+              onChange={handleFilterChange}
+              name="sortOrder"
             >
-              <option value="asc">Ascending &uarr;</option>
-              <option value="desc">Descending &darr;</option>
+              {SORT_ORDER_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -560,7 +482,6 @@ export default function FlightSearch() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {flights.map((flight, idx) => {
               const lowerStatus = (flight.status || 'On-Time').toLowerCase();
-              const isDelayed = lowerStatus === 'delayed';
               const isCancelled = lowerStatus === 'cancelled';
               const isLanded = lowerStatus === 'landed';
               const isUnavailable = isCancelled || isLanded;
@@ -572,19 +493,7 @@ export default function FlightSearch() {
                 >
                   <div>
                     <div className="flex justify-between items-center mb-4">
-                      <span
-                        className={`text-xs font-bold px-2.5 py-1 rounded uppercase ${
-                          isDelayed
-                            ? 'bg-amber-100 text-amber-800'
-                            : isCancelled
-                            ? 'bg-red-100 text-red-700'
-                            : isLanded
-                            ? 'bg-gray-200 text-gray-800'
-                            : 'bg-emerald-100 text-emerald-800'
-                        }`}
-                      >
-                        {flight.status || 'On-Time'}
-                      </span>
+                      <StatusBadge status={flight.status} />
                       <span className="font-bold text-gray-700">
                         Flight {flight.flight_number}
                       </span>
@@ -631,7 +540,9 @@ export default function FlightSearch() {
                   <button
                     type="button"
                     disabled={isUnavailable}
-                    onClick={() => handleSelectFlight(flight)}
+                    onClick={() =>
+                      navigate('/flights/select', { state: { flight } })
+                    }
                     className="w-full mt-5 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50"
                   >
                     {isCancelled
